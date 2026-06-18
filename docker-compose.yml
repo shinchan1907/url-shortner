@@ -12,6 +12,9 @@ services:
       - "80:80"
       - "443:443"
       - "443:443/udp" # Required for HTTP/3 support
+    environment:
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
+      - SHLINK_DOMAIN=${SHLINK_DOMAIN}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ./caddy/configs:/etc/caddy/configs:ro
