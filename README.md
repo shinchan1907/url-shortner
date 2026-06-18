@@ -12,13 +12,8 @@ It is designed for reliability, security, high performance, automatic backups, a
                        +-------------------+
                        |  Visitor / Client |
                        +---------+---------+
-                                 | HTTP/HTTPS (Port 80/443, HTTP/3 UDP 443)
-                                 v
-                       +---------+---------+
-                       |    Cloudflare     | (Optional Proxy & CDN)
-                       +---------+---------+
                                  |
-                                 v (Public network: Port 80 / 443)
+                                 v HTTP/HTTPS (Port 80/443, HTTP/3 UDP 443)
 +--------------------------------------------------------------------------+
 |  Host VPS (Ubuntu 24.04 LTS)                                             |
 |                                                                          |
