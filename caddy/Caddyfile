@@ -14,9 +14,6 @@
     servers {
         trusted_proxies static private_ranges
     }
-
-    # Enable HTTP/3 support
-    protocols h1 h2 h3
 }
 
 # Import sub-configs if any are placed in configs/ directory
