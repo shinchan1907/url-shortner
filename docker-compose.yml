@@ -1,0 +1,159 @@
+version: '3.8'
+
+services:
+  # ----------------------------------------------------------------------------
+  # CADDY REVERSE PROXY
+  # Handles SSL (Let's Encrypt), HTTP/2 & HTTP/3, and passes traffic to Shlink.
+  # ----------------------------------------------------------------------------
+  caddy:
+    image: caddy:2.7-alpine
+    container_name: shlink-caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # Required for HTTP/3 support
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy/configs:/etc/caddy/configs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - public_net
+    depends_on:
+      shlink:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
+        reservations:
+          cpus: '0.10'
+          memory: 64M
+
+  # ----------------------------------------------------------------------------
+  # SHLINK - URL SHORTENER ENGINE
+  # High-performance PHP-based URL shortener.
+  # ----------------------------------------------------------------------------
+  shlink:
+    image: shlink/shlink:stable
+    container_name: shlink-engine
+    restart: always
+    expose:
+      - "8080" # Not exposed to host, only reachable by Caddy on the public network
+    environment:
+      - TZ=${TZ}
+      - DB_DRIVER=postgres
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - SECRET_KEY=${SHLINK_SECRET_KEY}
+      - DEFAULT_DOMAIN=${SHLINK_DOMAIN}
+      - IS_HTTPS_ENABLED=${SHLINK_IS_HTTPS_ENABLED}
+      - GEOLITE2_LICENSE_KEY=${SHLINK_GEOLITE2_LICENSE_KEY}
+      - DEFAULT_INVALID_SHORT_URL_REDIRECT=${SHLINK_INVALID_SHORT_URL_REDIRECT}
+      - DEFAULT_REGULAR_404_REDIRECT=${SHLINK_REGULAR_404_REDIRECT}
+      - DEFAULT_BASE_URL_REDIRECT=${SHLINK_DEFAULT_DOMAIN_REDIRECT}
+      - TRUSTED_PROXIES=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16 # Trust Docker internal networks
+      # Performance Tuning for RoadRunner inside Shlink container
+      - WEB_WORKER_NUM=4 # 2x CPU cores fits well
+      - MEMORY_LIMIT=256M
+    volumes:
+      - shlink_data:/etc/shlink
+    networks:
+      - public_net
+      - private_net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/rest/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.75'
+          memory: 512M
+        reservations:
+          cpus: '0.20'
+          memory: 128M
+
+  # ----------------------------------------------------------------------------
+  # POSTGRESQL DATABASE
+  # Data storage for Shlink. Kept on private network.
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: shlink-db
+    restart: always
+    # Never expose ports publicly. Only reachable internally on the private network.
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Mount the local backups directory to allow host backup scripts to run pg_dump inside
+      - ./postgres/backups:/backups
+    networks:
+      - private_net
+    # Resource tuning parameters optimized for 2GB RAM
+    command: >
+      postgres 
+      -c shared_buffers=256MB 
+      -c work_mem=8MB 
+      -c maintenance_work_mem=64MB 
+      -c effective_cache_size=512MB 
+      -c max_connections=100
+      -c min_wal_size=80MB
+      -c max_wal_size=1GB
+      -c checkpoint_completion_target=0.9
+      -c checkpoint_timeout=15min
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${DB_USER}", "-d", "${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.75'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+# ------------------------------------------------------------------------------
+# NETWORKS DEFINITION
+# ------------------------------------------------------------------------------
+networks:
+  # Public network accessible by Caddy and Shlink
+  public_net:
+    driver: bridge
+    name: shlink_public_net
+  # Strictly private internal network accessible only by Shlink and Postgres
+  private_net:
+    driver: bridge
+    name: shlink_private_net
+    internal: true
+
+# ------------------------------------------------------------------------------
+# VOLUMES DEFINITION
+# ------------------------------------------------------------------------------
+volumes:
+  postgres_data:
+    name: shlink_postgres_data
+  caddy_data:
+    name: shlink_caddy_data
+  caddy_config:
+    name: shlink_caddy_config
+  shlink_data:
+    name: shlink_engine_data

@@ -1,0 +1,72 @@
+# ==============================================================================
+# CADDY REVERSE PROXY CONFIGURATION
+# ==============================================================================
+
+# Global options
+{
+    # Disable admin API for security since we configure via files
+    admin off
+
+    # Email for Let's Encrypt certificate notices
+    email {$LETSENCRYPT_EMAIL}
+
+    # Trust proxy headers (X-Forwarded-For, X-Real-IP) from Docker internal networks.
+    servers {
+        trusted_proxies static private_ranges
+    }
+
+    # Enable HTTP/3 support
+    protocols h1 h2 h3
+}
+
+# Import sub-configs if any are placed in configs/ directory
+import configs/*.conf
+
+# Shlink Shortener Service Definition
+{$SHLINK_DOMAIN} {
+    # Logging configuration
+    log {
+        output file /var/log/caddy/shlink_access.log {
+            roll_size 10mb
+            roll_keep 10
+            roll_keep_for 2160h # 90 days
+        }
+        format json
+        level INFO
+    }
+
+    # Secure Header Definitions
+    header {
+        # HTTP Strict Transport Security (HSTS) - 2 years
+        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+
+        # Prevent clickjacking
+        X-Frame-Options "DENY"
+
+        # Prevent MIME-type sniffing
+        X-Content-Type-Options "nosniff"
+
+        # Referrer Policy (pass origin for short redirects but protect user privacy)
+        Referrer-Policy "no-referrer-when-downgrade"
+
+        # Cross-Site Scripting Protection (legacy, but good fallback)
+        X-XSS-Protection "1; mode=block"
+
+        # Permissions Policy - Disable unnecessary hardware access
+        Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
+
+        # Strip signature headers for obfuscation
+        -Server
+        -X-Powered-By
+    }
+
+    # Reverse Proxy to Shlink container
+    reverse_proxy shlink-engine:8080 {
+        # Standard headers are automatically set by Caddy (X-Forwarded-For, X-Forwarded-Proto, Host)
+        # We also pass X-Real-IP explicitly just in case.
+        header_up X-Real-IP {remote_host}
+        
+        # Buffer responses if we have slow clients to release PHP workers faster
+        flush_interval -1
+    }
+}

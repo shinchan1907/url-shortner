@@ -1,0 +1,13 @@
+# Environment variables (contains production secrets)
+.env
+
+# Database backups (contains production data)
+/postgres/backups/*
+!/postgres/backups/.gitkeep
+
+# System and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
