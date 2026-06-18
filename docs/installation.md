@@ -94,7 +94,7 @@ Once the `.env` configuration is complete, run the deployment script:
 
 This script will:
 1. Validate the syntax of the `docker-compose.yml` file.
-2. Pull the required image tags (`shlink/shlink:stable`, `postgres:16-alpine`, `caddy:2.7-alpine`).
+2. Pull the required image tags (`shlinkio/shlink:stable`, `postgres:16-alpine`, `caddy:2.7-alpine`).
 3. Start the containers.
 4. Wait for containers to pass health checks.
 5. **Automatically generate your first administrative Shlink API Key** and display it in the console.

@@ -36,7 +36,7 @@ services:
   # High-performance PHP-based URL shortener.
   # ----------------------------------------------------------------------------
   shlink:
-    image: shlink/shlink:stable
+    image: shlinkio/shlink:stable
     container_name: shlink-engine
     restart: always
     expose:

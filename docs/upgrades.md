@@ -17,7 +17,7 @@ Run the update script:
 
 ### What this script does under the hood:
 1. **Safety Backup**: Runs `scripts/backup.sh` to take a full snapshot of your current database state.
-2. **Pull Images**: Pulls latest stable layers for Shlink (`shlink/shlink:stable`), Caddy (`caddy:2.7-alpine`), and PostgreSQL (`postgres:16-alpine`).
+2. **Pull Images**: Pulls latest stable layers for Shlink (`shlinkio/shlink:stable`), Caddy (`caddy:2.7-alpine`), and PostgreSQL (`postgres:16-alpine`).
 3. **Recreate Stack**: Runs `docker compose up -d` to recreate containers with the updated images.
 4. **Health Validation**: Monitors the new containers for 50 seconds to verify they stabilize and return healthy HTTP responses.
 5. **Rollback (on Failure)**: If the stack becomes unstable or fails health checks, it halts the stack, restores the pre-update database snapshot, and restarts the previous version.
